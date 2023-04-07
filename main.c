@@ -83,10 +83,12 @@ void push(node_t **list, char *word)
 
 // Recibe: un puntero al nodo inicial
 // Devuelve: tamano de la lista
-int count(node_t *head) {
+int count(node_t *head)
+{
     int count = 0;
     node_t *current = head;
-    while (current != NULL) {
+    while (current != NULL)
+    {
         count++;
         current = current->next;
     }
@@ -137,29 +139,33 @@ void bubble_sort(node_t **list)
 void print(node_t *head, int size, int cant_palabras, int cant_mostrar)
 {
     int i = 0, show = 0;
-    if(cant_mostrar > size)
+    if (cant_mostrar > size)
         fprintf(stderr, "ERROR: Cantidad de palabras mayor a la permitida -> %d \n", size);
     else
         show = cant_mostrar;
 
-    if(rflag){
+    if (rflag)
+    {
         node_t *ptr;
         ptr = head;
-        while(show > i && ptr != NULL){
-            printf("%-30s\t%-20.2f\n",ptr->word,(double)(ptr->frequency)/cant_palabras);
+        while (show > i && ptr != NULL)
+        {
+            printf("%-30s\t%-20.2f\n", ptr->word, (double)(ptr->frequency) / cant_palabras);
             ptr = ptr->next;
             i++;
         }
     }
-    else{
+    else
+    {
         node_t *ptr;
         ptr = head;
-        while(show > i && ptr != NULL){
-            printf("%-30s\t%-20hd\n",ptr->word,ptr->frequency);
-            ptr=ptr->next;
+        while (show > i && ptr != NULL)
+        {
+            printf("%-30s\t%-20hd\n", ptr->word, ptr->frequency);
+            ptr = ptr->next;
             i++;
         }
-    }       
+    }
 }
 
 int main(int argc, char *argv[])
@@ -170,8 +176,8 @@ int main(int argc, char *argv[])
     char *file_name;
     FILE *file;
 
-	node_t *nodo_actual;
-	node_t *header;
+    node_t *nodo_actual;
+    node_t *header;
 
     // Si la cantidad de argumentos es menor a 2, se muestra mensaje de ayuda
     if (argc < 2)
@@ -230,8 +236,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char delimitador[] = ".,:;\n"; // Caracteres ignorados
-    char *palabra = malloc(MAX_BUFFER_SIZE * sizeof(char)); //Contenedor para palabras del archivo
+    char delimitador[] = ".,:;\n";                          // Caracteres ignorados
+    char *palabra = malloc(MAX_BUFFER_SIZE * sizeof(char)); // Contenedor para palabras del archivo
 
     // Cuenta el total de palabras del archivo
     while (!feof(file))
