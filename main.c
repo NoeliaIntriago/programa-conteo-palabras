@@ -8,7 +8,6 @@
 #define MAX_BUFFER_SIZE 512
 
 bool rflag = false; // Opcion r - muestra frecuencia relativa
-bool wflag = false; // Opcion w - muestra las palabras mas frecuentes especificando la cantidad que se va a mostrar
 
 // Declaracion de estructura de nodo para lista enlazada de palabras y su frecuencia
 typedef struct node
@@ -31,18 +30,29 @@ void print_help()
     printf("-r\t\t\tMuestra frecuencia relativa\n");
 }
 
+// Recibe: un puntero al nodo inicial
+// Devuelve: nada, libera la memoria de la lista enlazada
+void free_list(node_t *head)
+{
+    while (head)
+    {
+        node_t *temp = head;
+        head = head->next;
+        free(temp);
+    }
+}
+
 // Recibe: lista enlazada, cadena de caracteres a buscar
 // Devuelve: un puntero al nodo en caso de que exista; caso contrario, devuelve NULL
 node_t *find(node_t *list, char *word)
 {
-    node_t *nodo_actual = list;
-    while (nodo_actual != NULL)
+    while (list)
     {
-        if (strcmp(nodo_actual->word, word) == 0)
+        if (strcmp(list->word, word) == 0)
         {
-            return nodo_actual;
+            return list;
         }
-        nodo_actual = nodo_actual->next;
+        list = list->next;
     }
     return NULL;
 }
@@ -51,13 +61,16 @@ node_t *find(node_t *list, char *word)
 // Devuelve: un puntero al nuevo nodo
 node_t *create(char *word)
 {
-    node_t *nuevo_nodo = (node_t *)malloc(sizeof(node_t));
-    if (nuevo_nodo != NULL)
+    node_t *nuevo_nodo = malloc(sizeof(node_t));
+    if (nuevo_nodo == NULL)
     {
-        strcpy(nuevo_nodo->word, word);
-        nuevo_nodo->frequency = 1;
-        nuevo_nodo->next = NULL;
+        fprintf(stderr, "ERROR: No se pudo asignar memoria para el nuevo nodo\n");
+        exit(EXIT_FAILURE);
     }
+
+    strcpy(nuevo_nodo->word, word);
+    nuevo_nodo->frequency = 1;
+    nuevo_nodo->next = NULL;
     return nuevo_nodo;
 }
 
@@ -73,11 +86,8 @@ void push(node_t **list, char *word)
     else
     {
         node_t *nuevo_nodo = create(word);
-        if (nuevo_nodo != NULL)
-        {
-            nuevo_nodo->next = *list;
-            *list = nuevo_nodo;
-        }
+        nuevo_nodo->next = *list;
+        *list = nuevo_nodo;
     }
 }
 
@@ -86,11 +96,10 @@ void push(node_t **list, char *word)
 int count(node_t *head)
 {
     int count = 0;
-    node_t *current = head;
-    while (current != NULL)
+    while (head)
     {
         count++;
-        current = current->next;
+        head = head->next;
     }
     return count;
 }
@@ -113,14 +122,10 @@ void bubble_sort(node_t **list)
 
             if (current->frequency < next->frequency)
             {
-                if (prev != NULL)
-                {
+                if (prev)
                     prev->next = next;
-                }
                 else
-                {
                     *list = next;
-                }
 
                 current->next = next->next;
                 next->next = current;
@@ -136,48 +141,72 @@ void bubble_sort(node_t **list)
     } while (swapped);
 }
 
-void print(node_t *head, int size, int cant_palabras, int cant_mostrar)
+// Recibe: un puntero al nodo inicial, cantidad total de palabras, cantidad maxima a mostrar
+// Devuelve: nada, imprime las palabras y sus frecuencias
+void print(node_t *head, int total_words, int max)
 {
-    int i = 0, show = 0;
-    if (cant_mostrar > size)
-        fprintf(stderr, "ERROR: Cantidad de palabras mayor a la permitida -> %d \n", size);
-    else
-        show = cant_mostrar;
+    int i = 0;
+    node_t *ptr = head;
 
-    if (rflag)
+    if (max > total_words)
     {
-        node_t *ptr;
-        ptr = head;
-        while (show > i && ptr != NULL)
+        fprintf(stderr, "WARN: Cantidad de palabras a mostrar mayor a la cantidad total de palabras -> %d \n", total_words);
+        max = total_words;
+    }
+
+    while (ptr && i < max)
+    {
+        if (rflag)
+            printf("%-30s\t%-20.2f\n", ptr->word, (double)(ptr->frequency) / total_words);
+        else
+            printf("%-30s\t%-20hd\n", ptr->word, ptr->frequency);
+        ptr = ptr->next;
+        i++;
+    }
+}
+
+// Recibe: cadena de caracteres
+// Devuelve: cadena de caracteres en minusculas
+void process_file(FILE *file, node_t **header, int *total_words)
+{
+    char palabra[MAX_BUFFER_SIZE];
+    int index = 0, c;
+
+    while ((c = fgetc(file)) != EOF)
+    {
+        if (isalpha(c))
         {
-            printf("%-30s\t%-20.2f\n", ptr->word, (double)(ptr->frequency) / cant_palabras);
-            ptr = ptr->next;
-            i++;
+            if (index < MAX_BUFFER_SIZE - 1)
+            {
+                palabra[index++] = tolower(c);
+            }
+        }
+        else
+        {
+            if (index > 0)
+            {
+                palabra[index] = '\0'; // Termina la cadena
+                push(header, palabra); // Agrega la palabra a la lista enlazada
+                (*total_words)++;
+                index = 0; // Reinicia el índice para la siguiente palabra
+            }
         }
     }
-    else
+
+    if (index > 0)
     {
-        node_t *ptr;
-        ptr = head;
-        while (show > i && ptr != NULL)
-        {
-            printf("%-30s\t%-20hd\n", ptr->word, ptr->frequency);
-            ptr = ptr->next;
-            i++;
-        }
+        palabra[index] = '\0'; // Termina la cadena
+        push(header, palabra); // Agrega la última palabra si existe
+        (*total_words)++;
     }
 }
 
 int main(int argc, char *argv[])
 {
-    int opt, i;
-    int default_show = 20;
-    int total_words = 0;
+    int opt, default_show = 20, total_words = 0;
     char *file_name;
     FILE *file;
-
-    node_t *nodo_actual;
-    node_t *header;
+    node_t *header = NULL;
 
     // Si la cantidad de argumentos es menor a 2, se muestra mensaje de ayuda
     if (argc < 2)
@@ -187,21 +216,21 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    while ((opt = getopt(argc, argv, "hrw")) != -1)
+    while ((opt = getopt(argc, argv, "hrw:")) != -1)
     {
         switch (opt)
         {
         case 'h':
             print_help();
-            return 1;
-            break;
+            return 0;
         case 'w':
-            wflag = true;
+            default_show = atoi(optarg);
+            if (default_show <= 0)
+                default_show = 20; // Si el valor es invalido, se asigna el valor por defecto
             break;
         case 'r':
             rflag = true;
             break;
-        case '?':
         default:
             fprintf(stderr, "uso: \t%s [-w <num palabras>] [-r] [<nombre archivo>]\n", argv[0]);
             fprintf(stderr, "\t%s -h\n", argv[0]);
@@ -209,21 +238,15 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Asigna la cantidad de palabras a mostrar, de no encontrar,
-    // se queda con el valor default
-    for (i = optind; i < argc; i++)
+    // Si no se especifica un archivo, se muestra mensaje de ayuda
+    if (optind < argc)
     {
-        if ((strtol(argv[i], NULL, 10) != 0))
-            default_show = strtol(argv[i], NULL, 10);
-        file_name = argv[i];
+        file_name = argv[optind];
     }
-
-    // Si no se ingreso nombre de archivo, muestra error de que no se ha indicado archivo
-    if (file_name == NULL)
+    else
     {
-        fprintf(stderr, "ERROR: No se ha indicado archivo\n");
-        fprintf(stderr, "uso: \t%s [-w <num palabras>] [-r] [<nombre archivo>]\n", argv[0]);
-        fprintf(stderr, "\t%s -h\n", argv[0]);
+        fprintf(stderr, "ERROR: No se indicó archivo.\n");
+        print_help();
         return 1;
     }
 
@@ -236,34 +259,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char delimitador[] = ".,:;\n";                          // Caracteres ignorados
-    char *palabra = malloc(MAX_BUFFER_SIZE * sizeof(char)); // Contenedor para palabras del archivo
-
-    // Cuenta el total de palabras del archivo
-    while (!feof(file))
-    {
-        fscanf(file, "%s", palabra);
-        total_words++;
-    }
-
-    rewind(file);
-
-    // Comienza a agregar nodos de ser palabra nueva, caso contrario, suma +1 a la frecuencia
-    while (fscanf(file, "%s", palabra) == 1)
-    {
-        char *token = strtok(palabra, delimitador);
-        while (token != NULL)
-        {
-            push(&header, token);
-            token = strtok(NULL, delimitador);
-        }
-    }
-
-    free(palabra);
-
+    // Procesa el archivo y cuenta las palabras
+    process_file(file, &header, &total_words);
     fclose(file);
 
     bubble_sort(&header);
-    print(header, count(header), total_words, default_show);
+    print(header, count(header), default_show);
+
+    free_list(header); // Libera la memoria de la lista enlazada
     return 0;
 }
